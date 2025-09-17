@@ -20,11 +20,11 @@ if __name__ == "__main__":
     #     scrape_bestbuy(site, driver)
 
     # result = bestbuy_search("rx9070xt", driver)
-    # result = bestbuy_search("dyson", driver)
-    # result = canadiantire_search("punching bag", driver, postalCode)
+    result = bestbuy_search("dyson", postalCode, limit=10)
+    # result = canadiantire_search("punching bag", postalCode, limit=5)
     # result = rona_search("dewalt drill", driver, postalCode)
     # result = homedepot_search("dewalt drill", driver, postalCode)
-    result = staples_search("calculator", driver, postalCode)
+    # result = staples_search("calculator", postalCode, limit = 10)
     
     count = 1
     for r in result:

@@ -51,7 +51,7 @@ def create_driver():
     return driver
 
 #works
-def scrape_bestbuy(driver):
+def scrape_bestbuy(driver, limit):
     # try:
         wait = WebDriverWait(driver, 10)
         
@@ -63,7 +63,7 @@ def scrape_bestbuy(driver):
         )
         
         products = []
-        
+        count = 0
         for product in product_container:
             try:
                 link = product.find_element(By.CSS_SELECTOR, 'a[role="link"][itemprop="url"]').get_attribute('href')
@@ -75,42 +75,54 @@ def scrape_bestbuy(driver):
                     'price': price,
                     'link': link
                 })
+                count += 1
+                if count >= limit:
+                    return products
             except Exception as e:
                 print(f"→ Error extracting product details: {e}")
         return products
 
-def bestbuy_search(product_name, driver):
-    base_url = "https://www.bestbuy.ca/en-ca/search?search="
-    query = product_name.replace(" ", "+")
-    url = f"{base_url}{query}"
-    driver.get(url)
-    wait = WebDriverWait(driver, 10)
+def bestbuy_search(product_name, postal_code=defaultPostalCode, limit = 10):
+    driver = create_driver()
     try:
-        availability_button = wait.until(
-            EC.element_to_be_clickable(
-                    (By.ID, 'availability-toggle')
+        base_url = "https://www.bestbuy.ca/en-ca/search?search="
+        query = product_name.replace(" ", "+")
+        url = f"{base_url}{query}"
+        driver.get(url)
+        wait = WebDriverWait(driver, 10)
+        try:
+            availability_button = wait.until(
+                EC.element_to_be_clickable(
+                        (By.ID, 'availability-toggle')
+                    )
                 )
-            )
-        driver.execute_script("arguments[0].click();", availability_button)
-        
-        bestbuyOnly_button = wait.until(
-            EC.element_to_be_clickable(
-                    (By.ID, 'bestbuy-only-toggle')
+            driver.execute_script("arguments[0].click();", availability_button)
+            
+            bestbuyOnly_button = wait.until(
+                EC.element_to_be_clickable(
+                        (By.ID, 'bestbuy-only-toggle')
+                    )
                 )
-            )
-        driver.execute_script("arguments[0].click();", bestbuyOnly_button)
-        
-        scroll_to_bottom(driver, pause=1)
-        
-        return scrape_bestbuy(driver)
+            driver.execute_script("arguments[0].click();", bestbuyOnly_button)
+            
+            scroll_to_bottom(driver, pause=1)
+            
+            return scrape_bestbuy(driver, limit)
 
-    except Exception as e:
-        print(f"BestBuy Search → Error: {e}")
-        return []
+        except Exception as e:
+            print(f"BestBuy Search → Error: {e}")
+            return []
+    finally:
+        driver.quit()
 
-def scroll_to_bottom(driver, pause=1):
+def scroll_to_bottom(driver, pause=1, max_time=10):
+    start_time = time.time()  # record start time
     last_height = driver.execute_script("return document.body.scrollHeight")
     while True:
+        if time.time() - start_time > max_time:
+            print("Stopped scrolling: max time exceeded")
+            break
+        
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(pause)  # wait for products to load
         new_height = driver.execute_script("return document.body.scrollHeight")
@@ -206,135 +218,138 @@ def scrape_amazon(url):
         return products
     
 #works
-def canadiantire_search(product_name, driver, postal_code="M5H 2N2"):
-    """
-    Search Canadian Tire for a product, set the store via postal code, and scrape product info.
-    Requires an existing Selenium driver instance.
-    """
-    base_url = "https://www.canadiantire.ca/en/search-results.html?q="
-    query = product_name.replace(" ", "+")
-    url = f"{base_url}{query}"
-    driver.get(url)
-    print("Page loaded:", url)
-
-    wait = WebDriverWait(driver, 10)
-
-    # Close any banners/popups
+def canadiantire_search(product_name, postal_code="M5H 2N2", limit = 10):
+    driver = create_driver()
     try:
-        close_banner = driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]')
-        if close_banner.is_displayed():
-            close_banner.click()
-    except:
-        pass
+        base_url = "https://www.canadiantire.ca/en/search-results.html?q="
+        query = product_name.replace(" ", "+")
+        url = f"{base_url}{query}"
+        driver.get(url)
+        print("Page loaded:", url)
 
-    # Click the Store Locator button
-    try:
-        store_buttons = driver.find_elements(By.CSS_SELECTOR, 'button.nl-store-locator--section-button[dap-wac-value="Store Locator"]')
-        for button in store_buttons:
-            if button.is_displayed() and button.is_enabled():
-                button.click()
-                break
-        else:
-            print("No visible Store Locator button found")
+        wait = WebDriverWait(driver, 10)
+
+        # Close any banners/popups
+        try:
+            close_banner = driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]')
+            if close_banner.is_displayed():
+                close_banner.click()
+        except:
+            pass
+
+        # Click the Store Locator button
+        try:
+            store_buttons = driver.find_elements(By.CSS_SELECTOR, 'button.nl-store-locator--section-button[dap-wac-value="Store Locator"]')
+            for button in store_buttons:
+                if button.is_displayed() and button.is_enabled():
+                    button.click()
+                    break
+            else:
+                print("No visible Store Locator button found")
+                return []
+        except Exception as e:
+            print("Error clicking Store Locator:", e)
             return []
-    except Exception as e:
-        print("Error clicking Store Locator:", e)
-        return []
 
-    # Enter postal code and select store
-    try:
-        
-        postal_input = wait.until(
-            EC.visibility_of_element_located((By.ID, "nl-store-locator-search-box"))
-        )
-        postal_input.clear()
-        postal_input.send_keys(postal_code)
-        time.sleep(2)
-        autocomplete_button = wait.until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[class*="nl-autocomplete-container"]'))
-        )
-        time.sleep(1)
-        autocomplete_button.click()
-        
-        time.sleep(1) 
-        select_store_button = wait.until(
-            EC.element_to_be_clickable((By.XPATH, '//button[text()="Select this store"]'))
-        )
-         # slight delay to ensure button is clickable
-        time.sleep(1) 
-        select_store_button.click()
+        # Enter postal code and select store
+        try:
+            
+            postal_input = wait.until(
+                EC.visibility_of_element_located((By.ID, "nl-store-locator-search-box"))
+            )
+            postal_input.clear()
+            postal_input.send_keys(postal_code)
+            time.sleep(2)
+            autocomplete_button = wait.until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[class*="nl-autocomplete-container"]'))
+            )
+            time.sleep(1)
+            autocomplete_button.click()
+            
+            time.sleep(1) 
+            select_store_button = wait.until(
+                EC.element_to_be_clickable((By.XPATH, '//button[text()="Select this store"]'))
+            )
+            # slight delay to ensure button is clickable
+            time.sleep(1) 
+            select_store_button.click()
 
-        print("Store selected, setting availability filter...")
-        
-        in_stock_button = wait.until(
-            EC.element_to_be_clickable((By.XPATH, '//button[span[text()="In Stock At My Store"]]'))
-        )
-        in_stock_button.click()
+            print("Store selected, setting availability filter...")
+            
+            in_stock_button = wait.until(
+                EC.element_to_be_clickable((By.XPATH, '//button[span[text()="In Stock At My Store"]]'))
+            )
+            in_stock_button.click()
 
-        print("done")
-        time.sleep(2)  # wait for product grid to update
+            print("done")
+            time.sleep(2)  # wait for product grid to update
 
-    except Exception as e:
-        print("Postal code popup error or elements not found:", e)
-        return []
+        except Exception as e:
+            print("Postal code popup error or elements not found:", e)
+            return []
 
-    # Scrape products
-    products = []
-    SCROLL_PAUSE_TIME = 1  # seconds
-    last_height = driver.execute_script("return document.body.scrollHeight")
+        # Scrape products
+        products = []
+        SCROLL_PAUSE_TIME = 1  # seconds
+        last_height = driver.execute_script("return document.body.scrollHeight")
 
-    seen_cards = set()  # track cards we already processed
+        seen_cards = set()  # track cards we already processed
 
-    while True:
-        # Scroll down a bit
-        driver.execute_script("window.scrollBy(0, window.innerHeight);")
-        time.sleep(SCROLL_PAUSE_TIME)
+        count = 0
+        while True:
+            # Scroll down a bit
+            driver.execute_script("window.scrollBy(0, window.innerHeight);")
+            time.sleep(SCROLL_PAUSE_TIME)
 
-        # Get all product cards currently in view
-        product_cards = driver.find_elements(By.CSS_SELECTOR, 'li[class*="nl-product__content"]')
+            # Get all product cards currently in view
+            product_cards = driver.find_elements(By.CSS_SELECTOR, 'li[class*="nl-product__content"]')
 
-        for card in product_cards:
-            card_id = card.get_attribute("id")
-            if card_id in seen_cards:
-                continue  # already processed
-            seen_cards.add(card_id)
+            for card in product_cards:
+                card_id = card.get_attribute("id")
+                if card_id in seen_cards:
+                    continue  # already processed
+                seen_cards.add(card_id)
 
-            try:
-                # Get link
-                link = card.find_element(By.CSS_SELECTOR, 'a.prod-link').get_attribute('href')
-
-                # Get brand and name
-                brand = card.find_element(By.CSS_SELECTOR, 'span[class*="nl-product__brand"]').text.strip()
-                name_text = card.find_element(By.CSS_SELECTOR, 'div[class*="nl-product-card__title"]').text.strip()
-                name = f"{brand} {name_text}" if brand else name_text
-
-                # Wait for priceTotal to appear (up to 5 seconds per card)
                 try:
-                    price_element = WebDriverWait(card, 5).until(
-                        EC.visibility_of_element_located((By.CSS_SELECTOR, 'span[data-testid="priceTotal"]'))
-                    )
-                    price = price_element.text.strip()
-                except:
-                    price = "n/a"
+                    # Get link
+                    link = card.find_element(By.CSS_SELECTOR, 'a.prod-link').get_attribute('href')
 
-                products.append({
-                    'name': name,
-                    'price': price,
-                    'link': link
-                })
-                print(name, price, link)
+                    # Get brand and name
+                    brand = card.find_element(By.CSS_SELECTOR, 'span[class*="nl-product__brand"]').text.strip()
+                    name_text = card.find_element(By.CSS_SELECTOR, 'div[class*="nl-product-card__title"]').text.strip()
+                    name = f"{brand} {name_text}" if brand else name_text
 
-            except Exception as e:
-                print("Skipped a product:", e)
+                    # Wait for priceTotal to appear (up to 5 seconds per card)
+                    try:
+                        price_element = WebDriverWait(card, 5).until(
+                            EC.visibility_of_element_located((By.CSS_SELECTOR, 'span[data-testid="priceTotal"]'))
+                        )
+                        price = price_element.text.strip()
+                    except:
+                        price = "n/a"
 
-        # Check if we've reached the bottom
-        new_height = driver.execute_script("return document.body.scrollHeight")
-        if new_height == last_height:
-            break
-        last_height = new_height
-    # time.sleep(20)
-    print("postalcode:", postal_code)
-    return products
+                    products.append({
+                        'name': name,
+                        'price': price,
+                        'link': link
+                    })
+                    print(name, price, link)
+                    count += 1
+                    if count >= limit:
+                        return products
+                except Exception as e:
+                    print("Skipped a product:", e)
+
+            # Check if we've reached the bottom
+            new_height = driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                break
+            last_height = new_height
+        # time.sleep(20)
+        print("postalcode:", postal_code)
+        return products
+    finally:
+        driver.quit()
 
 #cloudflare blocks selenium
 def rona_search(product_name, driver, postal_code=defaultPostalCode):
@@ -424,202 +439,211 @@ def rona_search(product_name, driver, postal_code=defaultPostalCode):
    
    
 #work in progress 
-def homedepot_search(product_name, driver, postal_code=defaultPostalCode):
-    url = "https://www.homedepot.ca/en/home.html"
-    driver.get(url)
-    print("Page loaded:", url)
+def homedepot_search(product_name, postal_code=defaultPostalCode, limit = 10):
+    driver = create_driver()
+    try:
+        url = "https://www.homedepot.ca/en/home.html"
+        driver.get(url)
+        print("Page loaded:", url)
 
-    wait = WebDriverWait(driver, 10)
-    products = []
-    try:
-        searchbar = wait.until(
-            EC.visibility_of_element_located((By.CSS_SELECTOR, 'input[type="search"][placeholder="What can we help you find?"]'))
-        )
-    except Exception as e:
-        print("Search bar not found:", e)
-        return products
-    
-    # time.sleep(0.29)
-    searchbar.clear()
-    # time.sleep(0.23)
-    for char in product_name:
-        searchbar.send_keys(char)
-        # time.sleep(random.uniform(0.05, 0.15))  # simulate human typing with slight randomness
-    # time.sleep(1.23)
-    searchbar.send_keys(Keys.ENTER)
-    
-    try:
-        close_banner = driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]')
-        if close_banner.is_displayed():
-            close_banner.click()
-    except:
-        pass
-    
-    try:
-        location_button = wait.until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[role = "button"][id *= "store-hours"]'))
-        )
-        location_button.click()
-        time.sleep(1)
-        
-        changeStoreButton = wait.until(
-            EC.visibility_of_element_located((By.XPATH, '//a[@role="button" and contains(text(), "Change Store")]'))
-        )
-        changeStoreButton.click()
-        time.sleep(1)
-        
-        postal_input = wait.until(
-            EC.visibility_of_element_located((By.CSS_SELECTOR, 'input[placeholder="Postal Code, City, or Store Number"]'))
-        )
-        postal_input.clear()
-        postal_input.send_keys(postal_code)
-        postal_input.send_keys(Keys.ENTER)
-        time.sleep(1)
-        
-        selectFirst = wait.until(
-            EC.element_to_be_clickable((By.XPATH, '//button[contains(@class, "acl-button")]//span[contains(text(), "Select")]'))
-        )
-        
-        selectFirst.click()
-        
-        inStock_button = wait.until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[id="stock"]'))
-        )
-        driver.execute_script("arguments[0].click();", inStock_button)
-        time.sleep(2)  # wait for store to update
-    
-    except Exception as e:
-        print("Postal code popup error or elements not found:", e)
-        return products
-    time.sleep(1)
-    
-    try:
-        SCROLL_PAUSE_TIME = 2
-        seen_cards = set()
+        wait = WebDriverWait(driver, 10)
         products = []
+        try:
+            searchbar = wait.until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, 'input[type="search"][placeholder="What can we help you find?"]'))
+            )
+        except Exception as e:
+            print("Search bar not found:", e)
+            return products
+        
+        # time.sleep(0.29)
+        searchbar.clear()
+        # time.sleep(0.23)
+        for char in product_name:
+            searchbar.send_keys(char)
+            # time.sleep(random.uniform(0.05, 0.15))  # simulate human typing with slight randomness
+        # time.sleep(1.23)
+        searchbar.send_keys(Keys.ENTER)
+        
+        try:
+            close_banner = driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]')
+            if close_banner.is_displayed():
+                close_banner.click()
+        except:
+            pass
+        
+        try:
+            location_button = wait.until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[role = "button"][id *= "store-hours"]'))
+            )
+            location_button.click()
+            time.sleep(1)
+            
+            changeStoreButton = wait.until(
+                EC.visibility_of_element_located((By.XPATH, '//a[@role="button" and contains(text(), "Change Store")]'))
+            )
+            changeStoreButton.click()
+            time.sleep(1)
+            
+            postal_input = wait.until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, 'input[placeholder="Postal Code, City, or Store Number"]'))
+            )
+            postal_input.clear()
+            postal_input.send_keys(postal_code)
+            postal_input.send_keys(Keys.ENTER)
+            time.sleep(1)
+            
+            selectFirst = wait.until(
+                EC.element_to_be_clickable((By.XPATH, '//button[contains(@class, "acl-button")]//span[contains(text(), "Select")]'))
+            )
+            
+            selectFirst.click()
+            
+            inStock_button = wait.until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[id="stock"]'))
+            )
+            driver.execute_script("arguments[0].click();", inStock_button)
+            time.sleep(2)  # wait for store to update
+        
+        except Exception as e:
+            print("Postal code popup error or elements not found:", e)
+        time.sleep(1)
+        
+        try:
+            SCROLL_PAUSE_TIME = 2
+            seen_cards = set()
+            count = 0
+            prev_count = 0
+            while True:
+                # Scroll to bottom
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(SCROLL_PAUSE_TIME)
 
-        prev_count = 0
-        while True:
-            # Scroll to bottom
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(SCROLL_PAUSE_TIME)
+                # Collect cards
+                product_cards = driver.find_elements(By.CSS_SELECTOR, 'article[id*="productCardIndex"]')
+                print(f"Found {len(product_cards)} products")
 
-            # Collect cards
-            product_cards = driver.find_elements(By.CSS_SELECTOR, 'article[id*="productCardIndex"]')
-            print(f"Found {len(product_cards)} products")
+                for card in product_cards:
+                    card_id = card.get_attribute("id")
+                    if card_id in seen_cards:
+                        continue
+                    seen_cards.add(card_id)
 
-            for card in product_cards:
-                card_id = card.get_attribute("id")
-                if card_id in seen_cards:
-                    continue
-                seen_cards.add(card_id)
-
-                try:
-                    link = card.find_element(By.CSS_SELECTOR, 'a.acl-product-card__title-link').get_attribute('href')
-                    name = card.find_element(By.CSS_SELECTOR, 'a.acl-product-card__title-link').get_attribute('title')
                     try:
-                        price_element = card.find_element(By.CSS_SELECTOR, 'div[class*="acl-product-card__price"] span.ng-star-inserted')
+                        link = card.find_element(By.CSS_SELECTOR, 'a.acl-product-card__title-link').get_attribute('href')
+                        name = card.find_element(By.CSS_SELECTOR, 'a.acl-product-card__title-link').get_attribute('title')
+                        try:
+                            price_element = card.find_element(By.CSS_SELECTOR, 'div[class*="acl-product-card__price"] span.ng-star-inserted')
+                            price = price_element.text.strip()
+                        except:
+                            price = "n/a"
+
+                        products.append({"name": name, "price": price, "link": link})
+                        print(name, price, link)
+                        count += 1
+                        if count >= limit:
+                            return products
+                    except Exception as e:
+                        print("Skipped a product:", e)
+
+                # Stop when no new products appear
+                if len(product_cards) == prev_count:
+                    break
+                prev_count = len(product_cards)
+
+        except Exception as e:
+            print(f"Error locating product cards: {e}")
+
+        print("postalcode:", postal_code)
+        return products
+    finally:
+        driver.quit()
+
+def staples_search(product_name, postal_code=defaultPostalCode, limit = 10):
+    driver = create_driver()
+    try:
+        url = f"https://www.staples.ca/search?query={product_name.replace(' ', '+')}"
+        driver.get(url)
+        print("Page loaded:", url)
+
+        wait = WebDriverWait(driver, 10)
+        products = []
+        # 
+        try:
+            print("Starting Setting Up")
+
+            # 1️⃣ Click the Store Locator modal
+            location_button = wait.until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'div.StoreLocatorModal'))
+            )
+            print("location_button found and clickable")
+            location_button.click()
+
+            # 2️⃣ Input postal code / city
+            location_input = wait.until(
+                EC.visibility_of_element_located((
+                    By.CSS_SELECTOR, 'input.input__element[placeholder="Search store by postal code or city"]'
+                ))
+            )
+            print("location_input found and visible")
+            location_input.clear()
+            location_input.send_keys(postal_code)
+            location_input.send_keys(Keys.ENTER)  # safer than clicking search button
+
+            # 3️⃣ Wait for store results to load
+            make_my_store_button = wait.until(
+                EC.element_to_be_clickable((
+                    By.XPATH,
+                    '//div[contains(@class,"store")]//button[contains(@class,"select-store-button-container") and normalize-space(text())="Make My Store"]'
+                ))
+            )
+            print("make_my_store_button found and clickable")
+
+            # Scroll into view in case element is covered
+            # driver.execute_script("arguments[0].scrollIntoView(true);", make_my_store_button)
+            time.sleep(0.5)  # small pause after scrolling
+            make_my_store_button.click()
+
+            print("Done Setting Up")
+        except Exception as e:
+            print(f"Staples Search → Error: {e}")
+        print("Done Setting Up")
+        
+        #scraping products
+        count = 0
+        try:
+            product_cards = wait.until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.ais-hits--item'))
+            )
+            print(f"Found {len(product_cards)} products")
+            
+            for card in product_cards:
+                try:
+                    try:
+                        link = card.find_element(By.CSS_SELECTOR, 'a.product-link.product-thumbnail__title').get_attribute('href')
+                    except:
+                        link = "n/a"
+                    try:
+                        name = card.find_element(By.CSS_SELECTOR, 'a.product-link.product-thumbnail__title').text.strip()
+                        
+                    except:
+                        name = "n/a"
+                    
+                    try:
+                        price_element = card.find_element(By.CSS_SELECTOR, 'span.money.pre-money')
                         price = price_element.text.strip()
                     except:
                         price = "n/a"
-
-                    products.append({"name": name, "price": price, "link": link})
-                    print(name, price, link)
+                    
+                    products.append({'name': name, 'price': price, 'link': link})
+                    print(f"name: {name}, price: {price}, link: {link}")
+                    count += 1
+                    if count >= limit:
+                        return products
                 except Exception as e:
                     print("Skipped a product:", e)
-
-            # Stop when no new products appear
-            if len(product_cards) == prev_count:
-                break
-            prev_count = len(product_cards)
-
-    except Exception as e:
-        print(f"Error locating product cards: {e}")
-
-    print("postalcode:", postal_code)
-    return products
-
-def staples_search(product_name, driver, postal_code=defaultPostalCode):
-    # url = "https://www.staples.ca/en"
-    url = f"https://www.staples.ca/search?query={product_name.replace(' ', '+')}"
-    driver.get(url)
-    print("Page loaded:", url)
-
-    wait = WebDriverWait(driver, 10)
-    products = []
-    # 
-    try:
-        print("Starting Setting Up")
-
-        # 1️⃣ Click the Store Locator modal
-        location_button = wait.until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, 'div.StoreLocatorModal'))
-        )
-        print("location_button found and clickable")
-        location_button.click()
-
-        # 2️⃣ Input postal code / city
-        location_input = wait.until(
-            EC.visibility_of_element_located((
-                By.CSS_SELECTOR, 'input.input__element[placeholder="Search store by postal code or city"]'
-            ))
-        )
-        print("location_input found and visible")
-        location_input.clear()
-        location_input.send_keys(postal_code)
-        location_input.send_keys(Keys.ENTER)  # safer than clicking search button
-
-        # 3️⃣ Wait for store results to load
-        make_my_store_button = wait.until(
-            EC.element_to_be_clickable((
-                By.XPATH,
-                '//div[contains(@class,"store")]//button[contains(@class,"select-store-button-container") and normalize-space(text())="Make My Store"]'
-            ))
-        )
-        print("make_my_store_button found and clickable")
-
-        # Scroll into view in case element is covered
-        # driver.execute_script("arguments[0].scrollIntoView(true);", make_my_store_button)
-        time.sleep(0.5)  # small pause after scrolling
-        make_my_store_button.click()
-
-        print("Done Setting Up")
-
-    except Exception as e:
-        print(f"Staples Search → Error: {e}")
+        except Exception as e:
+            print(f"Error locating product cards: {e}")
         return products
-    print("Done Setting Up")
-    
-    #scraping products
-    try:
-        product_cards = wait.until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.ais-hits--item'))
-        )
-        print(f"Found {len(product_cards)} products")
-        
-        for card in product_cards:
-            try:
-                try:
-                    link = card.find_element(By.CSS_SELECTOR, 'a.product-link.product-thumbnail__title').get_attribute('href')
-                except:
-                    link = "n/a"
-                try:
-                    name = card.find_element(By.CSS_SELECTOR, 'a.product-link.product-thumbnail__title').text.strip()
-                    
-                except:
-                    name = "n/a"
-                
-                try:
-                    price_element = card.find_element(By.CSS_SELECTOR, 'span.money.pre-money')
-                    price = price_element.text.strip()
-                except:
-                    price = "n/a"
-                
-                products.append({'name': name, 'price': price, 'link': link})
-                print(f"name: {name}, price: {price}, link: {link}")
-            except Exception as e:
-                print("Skipped a product:", e)
-    except Exception as e:
-        print(f"Error locating product cards: {e}")
-        return products
-    return products
+    finally:
+        driver.quit()
