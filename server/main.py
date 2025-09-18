@@ -6,13 +6,31 @@ from scraper import bestbuy_search, canadiantire_search, staples_search, homedep
 import time
 import asyncio
 from typing import List, Dict, Any
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Or specify ["http://localhost:5173"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class SearchRequest(BaseModel):
+    query: str
+    postal_code: str = "M5V2T6"
+    bestbuy: bool = True
+    canadiantire: bool = True
+    staples: bool = True
+    homedepot: bool = True
+    
 # Import your scraper logic here
 # from staples_scraper import staples_search
 # http://127.0.0.1:8000/search?query=AA+battery&postal_code=M5V2T6
 
-app = FastAPI()
-executor = ThreadPoolExecutor(max_workers=3)
+executor = ThreadPoolExecutor(max_workers=4)
 
 # Example Pydantic model for the product response
 class Product(BaseModel):
@@ -20,7 +38,8 @@ class Product(BaseModel):
     price: str
     link: str
 
-
+async def empty_result():
+    return []
 
 def run_scraper(scraper_func, query: str, postal_code: str):
     return scraper_func(query, postal_code)
@@ -47,7 +66,7 @@ def root():
     return {"message": "API is running 🚀"}
 
 @app.get("/search")
-async def search_all(query: str, postal_code: str = "M5V2T6"):
+async def search_all(query: str, postal_code: str = "M5V2T6", bestbuy: bool = True, canadiantire: bool = True, staples: bool = True, homedepot: bool = True):
     tasks = [
         run_with_retries(executor, bestbuy_search, query, postal_code, limit = 10),
         run_with_retries(executor, canadiantire_search, query, postal_code, limit = 5),
@@ -62,4 +81,38 @@ async def search_all(query: str, postal_code: str = "M5V2T6"):
         "canadiantire": results[1],
         "staples": results[2],
         "homedepot": results[3],
+    }
+    
+@app.post("/search")
+async def search_all(request: SearchRequest):
+    tasks = []
+
+    if request.bestbuy:
+        tasks.append(run_with_retries(executor, bestbuy_search, request.query, request.postal_code, limit=10))
+    else:
+        tasks.append(empty_result())  # Placeholder for consistent indexing
+        
+    if request.canadiantire:
+        tasks.append(run_with_retries(executor, canadiantire_search, request.query, request.postal_code, limit=5))
+    else:
+        tasks.append(empty_result())  # Placeholder for consistent indexing
+        
+    if request.staples:
+        tasks.append(run_with_retries(executor, staples_search, request.query, request.postal_code, limit=5))
+    else:
+        tasks.append(empty_result())  # Placeholder for consistent indexing
+        
+    if request.homedepot:
+        tasks.append(run_with_retries(executor, homedepot_search, request.query, request.postal_code, limit=5))
+    else:
+        tasks.append(empty_result())  # Placeholder for consistent indexing
+        
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    return {
+        "bestbuy": results[0] if request.bestbuy else [],
+        "canadiantire": results[1] if request.canadiantire else [],
+        "staples": results[2] if request.staples else [],
+        "homedepot": results[3] if request.homedepot else [],
     }
