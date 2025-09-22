@@ -52,35 +52,55 @@ def create_driver():
 
 #works
 def scrape_bestbuy(driver, limit):
-    # try:
-        wait = WebDriverWait(driver, 10)
-        
-        # products container
+    wait = WebDriverWait(driver, 10)
+    products = []
+    seen_count = -1  # keep track of how many we saw last scroll
+    scroll_attempts = 0
+    max_scroll_attempts = 5  # avoid infinite loop
+    
+    while len(products) < limit and scroll_attempts < max_scroll_attempts:
+        # grab product containers
         product_container = wait.until(
             EC.presence_of_all_elements_located(
                 (By.CSS_SELECTOR, 'div[class *="productCard"]')
             )
         )
-        
-        products = []
-        count = 0
-        for product in product_container:
+
+        count = len(products)
+        for product in product_container[len(products):]:  # only parse new ones
             try:
                 link = product.find_element(By.CSS_SELECTOR, 'a[role="link"][itemprop="url"]').get_attribute('href')
-                price = product.find_element(By.CSS_SELECTOR, 'div[class *="productPricingContainer"] > span[data-automation="product-price"] > span[class*="style-module_screenReaderOnly"]').text
+                price = product.find_element(
+                    By.CSS_SELECTOR,
+                    'div[class *="productPricingContainer"] > span[data-automation="product-price"] > span[class*="style-module_screenReaderOnly"]'
+                ).text
                 name = product.find_element(By.CSS_SELECTOR, '[class *= productItemName][itemprop="name"]').text
+                image = product.find_element(By.CSS_SELECTOR, 'img[class *= productItemImage]').get_attribute('src')
                 
                 products.append({
                     'name': name,
                     'price': price,
-                    'link': link
+                    'link': link,
+                    'image': image
                 })
-                count += 1
-                if count >= limit:
+
+                if len(products) >= limit:
                     return products
             except Exception as e:
                 print(f"→ Error extracting product details: {e}")
-        return products
+
+        # check if new products appeared
+        if len(products) == seen_count:
+            scroll_attempts += 1
+        else:
+            scroll_attempts = 0
+            seen_count = len(products)
+
+        # scroll to bottom
+        driver.execute_script("window.scrollBy(0, document.body.scrollHeight);")
+        time.sleep(2)  # wait for new products to load
+
+    return products
 
 def bestbuy_search(product_name, postal_code=defaultPostalCode, limit = 10):
     driver = create_driver()
@@ -105,8 +125,8 @@ def bestbuy_search(product_name, postal_code=defaultPostalCode, limit = 10):
                 )
             driver.execute_script("arguments[0].click();", bestbuyOnly_button)
             
-            scroll_to_bottom(driver, pause=1)
-            
+            # scroll_to_bottom(driver, pause=1)
+            time.sleep(2)  # wait for products to load
             return scrape_bestbuy(driver, limit)
 
         except Exception as e:
@@ -231,6 +251,9 @@ def canadiantire_search(product_name, postal_code="M5H 2N2", limit = 10):
 
         # Close any banners/popups
         try:
+            # close_button = WebDriverWait(driver, 3).until(
+            #     EC.element_to_be_clickable((By.CSS_SELECTOR, "button.close, .popup-close, .modal-close"))
+            # time.sleep(5)
             close_banner = driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]')
             if close_banner.is_displayed():
                 close_banner.click()
@@ -319,6 +342,7 @@ def canadiantire_search(product_name, postal_code="M5H 2N2", limit = 10):
                     name_text = card.find_element(By.CSS_SELECTOR, 'div[class*="nl-product-card__title"]').text.strip()
                     name = f"{brand} {name_text}" if brand else name_text
 
+                    image = card.find_element(By.CSS_SELECTOR, 'img[data-component-name="product-card"]').get_attribute('src')
                     # Wait for priceTotal to appear (up to 5 seconds per card)
                     try:
                         price_element = WebDriverWait(card, 5).until(
@@ -331,7 +355,8 @@ def canadiantire_search(product_name, postal_code="M5H 2N2", limit = 10):
                     products.append({
                         'name': name,
                         'price': price,
-                        'link': link
+                        'link': link,
+                        'image': image
                     })
                     print(name, price, link)
                     count += 1
@@ -537,8 +562,11 @@ def homedepot_search(product_name, postal_code=defaultPostalCode, limit = 10):
                             price = price_element.text.strip()
                         except:
                             price = "n/a"
-
-                        products.append({"name": name, "price": price, "link": link})
+                        try:
+                            image = card.find_element(By.CSS_SELECTOR, 'img[id *= "acl-image-opt-id"]').get_attribute('src')
+                        except:
+                            image = "n/a"
+                        products.append({"name": name, "price": price, "link": link, "image": image})
                         print(name, price, link)
                         count += 1
                         if count >= limit:
@@ -635,8 +663,13 @@ def staples_search(product_name, postal_code=defaultPostalCode, limit = 10):
                     except:
                         price = "n/a"
                     
-                    products.append({'name': name, 'price': price, 'link': link})
-                    print(f"name: {name}, price: {price}, link: {link}")
+                    try:
+                        image = card.find_element(By.CSS_SELECTOR, 'img.product-thumbnail__image').get_attribute('src')
+                    except:
+                        image = "n/a"
+                    
+                    products.append({'name': name, 'price': price, 'link': link, 'image': image})
+                    print(f"name: {name}, price: {price}, link: {link}, image: {image}")
                     count += 1
                     if count >= limit:
                         return products

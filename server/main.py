@@ -37,6 +37,7 @@ class Product(BaseModel):
     name: str
     price: str
     link: str
+    image: Optional[str] = None
 
 async def empty_result():
     return []
@@ -44,7 +45,7 @@ async def empty_result():
 def run_scraper(scraper_func, query: str, postal_code: str):
     return scraper_func(query, postal_code)
 
-async def run_with_retries(executor, scraper_func, query, postal_code, limit, max_retries=5):
+async def run_with_retries(executor, scraper_func, query, postal_code, limit, max_retries=3):
     loop = asyncio.get_running_loop()
     last_exc = None
 
@@ -52,6 +53,11 @@ async def run_with_retries(executor, scraper_func, query, postal_code, limit, ma
         try:
             print(f"Attempt {attempt} → {scraper_func.__name__}")
             result = await loop.run_in_executor(executor, scraper_func, query, postal_code, limit)
+            if result == []:
+                print(f"{scraper_func.__name__} returned empty result (attempt {attempt})")
+                last_exc = Exception("Empty result")
+                await asyncio.sleep(1)  # small backoff before retry
+                continue
             return result
         except Exception as e:
             print(f"{scraper_func.__name__} failed (attempt {attempt}): {e}")
@@ -59,7 +65,9 @@ async def run_with_retries(executor, scraper_func, query, postal_code, limit, ma
             await asyncio.sleep(1)  # small backoff before retry
 
     # If all retries failed, raise the last exception
-    raise last_exc
+    return []
+    # raise last_exc
+    
 
 @app.get("/")
 def root():
@@ -69,9 +77,9 @@ def root():
 async def search_all(query: str, postal_code: str = "M5V2T6", bestbuy: bool = True, canadiantire: bool = True, staples: bool = True, homedepot: bool = True):
     tasks = [
         run_with_retries(executor, bestbuy_search, query, postal_code, limit = 10),
-        run_with_retries(executor, canadiantire_search, query, postal_code, limit = 5),
-        run_with_retries(executor, staples_search, query, postal_code, limit = 5),
-        run_with_retries(executor, homedepot_search, query, postal_code, limit = 5),
+        run_with_retries(executor, canadiantire_search, query, postal_code, limit = 10),
+        run_with_retries(executor, staples_search, query, postal_code, limit = 10),
+        run_with_retries(executor, homedepot_search, query, postal_code, limit = 10),
     ]
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -111,8 +119,8 @@ async def search_all(request: SearchRequest):
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     return {
-        "bestbuy": results[0] if request.bestbuy else [],
-        "canadiantire": results[1] if request.canadiantire else [],
-        "staples": results[2] if request.staples else [],
-        "homedepot": results[3] if request.homedepot else [],
+        "Best Buy": results[0] if request.bestbuy else [],
+        "Canadian Tire": results[1] if request.canadiantire else [],
+        "Staples": results[2] if request.staples else [],
+        "Home Depot": results[3] if request.homedepot else [],
     }

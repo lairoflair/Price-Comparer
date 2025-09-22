@@ -26,8 +26,9 @@ if __name__ == "__main__":
     # result = homedepot_search("dewalt drill", driver, postalCode)
     # result = staples_search("calculator", postalCode, limit = 10)
     
+    
     count = 1
     for r in result:
-        print(f"{count}: {r['name']}, {r['price']}")
+        print(f"{count}: {r['name']}, {r['price']}, {r['image']}")
         count += 1
     driver.quit()  # quit only once at the end
