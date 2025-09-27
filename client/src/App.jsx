@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import "./App.css";
+// import "./App.css";
 import "./Main Part.jsx";
 import PriceWiseLogo from "./PriceWiseLogo.png";
 function App() {
@@ -11,8 +11,10 @@ function App() {
     const [staples, setStaples] = useState(true);
     const [homeDepot, setHomeDepot] = useState(true);
     const [sortOption, setSortOption] = useState("price");
+    const [loading, setLoading] = useState(false);
 
     const findItem = async () => {
+        setLoading(true);
         if (!searchItem || !postalCode) {
             alert("Please enter both a search item and a postal code.");
             return;
@@ -37,6 +39,7 @@ function App() {
         } catch (error) {
             console.error("Error fetching item data:", error);
         }
+        setLoading(false);
     };
 
     // flatten all items if sorting by price
@@ -57,103 +60,115 @@ function App() {
     };
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen flex flex-col">
             {/* Top bar */}
-            <div className="top-bar sticky top-0 z-10 bg-blue-600 shadow p-4 flex flex-col md:flex-row md:items-center md:justify-between">
-                <div className="logo flex items-center gap-2">
+            <div className="sticky top-0 z-10 bg-blue-600 shadow p-4 flex flex-col md:flex-row md:items-center md:justify-between text-white">
+                <div className="flex items-center gap-2 font-bold text-lg">
                     <img
                         src={PriceWiseLogo}
                         alt="PriceWise Logo"
                         className="h-8 w-auto md:h-10 lg:h-12 object-contain"
                     />
-                    <span className="font-bold text-lg">E-commerce Price Comparer</span>
+                    <span>E-commerce Price Comparer</span>
                 </div>
-
             </div>
 
             {/* Util bar */}
             <div className="bg-blue-500">
-                <div className=" ">
-                    <div className="dropdowns">
-                        {/* Stores dropdown */}
-                        <div className="dropdown">
-                            <button className="dropbtn">Stores</button>
-                            <div className="dropdown-content">
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={bestBuy}
-                                        onChange={() => setBestBuy(!bestBuy)}
-                                    />
-                                    Best Buy
-                                </label>
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={canadianTire}
-                                        onChange={() => setCanadianTire(!canadianTire)}
-                                    />
-                                    Canadian Tire
-                                </label>
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={staples}
-                                        onChange={() => setStaples(!staples)}
-                                    />
-                                    Staples
-                                </label>
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={homeDepot}
-                                        onChange={() => setHomeDepot(!homeDepot)}
-                                    />
-                                    Home Depot
-                                </label>
-                            </div>
-                        </div>
+                <div className="flex items-center gap-6 p-2">
+                    {/* Stores dropdown */}
+                    <div className="relative inline-block group">
+                        <button className="text-white font-bold px-2 py-1 rounded cursor-pointer">
+                            Stores
+                        </button>
 
-                        {/* Sort dropdown */}
-                        <select
-                            className="sort-select"
-                            value={sortOption}
-                            onChange={(e) => setSortOption(e.target.value)}
-                        >
-                            <option value="price">Sort by Price</option>
-                            <option value="website">Sort by Website</option>
-                        </select>
+                        <div className="absolute left-0 mt-1 w-40 bg-white border border-gray-300 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-10">
+                            <label className="block px-2 py-2 text-sm text-black cursor-pointer hover:bg-gray-100">
+                                <input
+                                    type="checkbox"
+                                    checked={bestBuy}
+                                    onChange={() => setBestBuy(!bestBuy)}
+                                    className="mr-2"
+                                />
+                                Best Buy
+                            </label>
+                            <label className="block px-2 py-2 text-sm text-black cursor-pointer hover:bg-gray-100">
+                                <input
+                                    type="checkbox"
+                                    checked={canadianTire}
+                                    onChange={() => setCanadianTire(!canadianTire)}
+                                    className="mr-2"
+                                />
+                                Canadian Tire
+                            </label>
+                            <label className="block px-2 py-2 text-sm text-black cursor-pointer hover:bg-gray-100">
+                                <input
+                                    type="checkbox"
+                                    checked={staples}
+                                    onChange={() => setStaples(!staples)}
+                                    className="mr-2"
+                                />
+                                Staples
+                            </label>
+                            <label className="block px-2 py-2 text-sm text-black cursor-pointer hover:bg-gray-100">
+                                <input
+                                    type="checkbox"
+                                    checked={homeDepot}
+                                    onChange={() => setHomeDepot(!homeDepot)}
+                                    className="mr-2"
+                                />
+                                Home Depot
+                            </label>
+                        </div>
                     </div>
-                </div>
-                {/* Search bar */}
-                <div className="search-bar shadow p-4 flex flex-col md:flex-row md:items-center md:justify-center gap-2">
-                    <input
-                        id="SearchBar"
-                        type="text"
-                        value={searchItem}
-                        onChange={(e) => setSearchItem(e.target.value)}
-                        placeholder="Search for a product..."
-                    />
-                    <input
-                        id="PostalCode"
-                        type="text"
-                        value={postalCode}
-                        onChange={(e) => setPostalCode(e.target.value)}
-                        placeholder="Enter Postal Code..."
-                    />
-                    <button onClick={findItem}>Search</button>
+
+                    {/* Sort dropdown */}
+                    <select
+                        className="px-2 py-1 rounded bg-transparent text-white font-bold"
+                        value={sortOption}
+                        onChange={(e) => setSortOption(e.target.value)}
+                    >
+                        <option className="text-black" value="price">Sort by Price</option>
+                        <option className="text-black" value="website">Sort by Website</option>
+                    </select>
                 </div>
             </div>
 
+            {/* Search bar */}
+            <div className="shadow p-4 flex flex-col md:flex-row md:items-center md:justify-center gap-2 w-full bg-white">
+                <input
+                    id="SearchBar"
+                    type="text"
+                    value={searchItem}
+                    onChange={(e) => setSearchItem(e.target.value)}
+                    placeholder="Search for a product..."
+                    className="px-2 py-2 border border-gray-300 rounded"
+                />
+                <input
+                    id="PostalCode"
+                    type="text"
+                    value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                    placeholder="Enter Postal Code..."
+                    className="px-2 py-2 border border-gray-300 rounded"
+                />
+                <button
+                    onClick={findItem}
+                    className="px-4 py-2 bg-blue-600 text-white font-semibold rounded shadow hover:bg-blue-700"
+                >
+                    Search
+                </button>
+            </div>
+
             {/* Main content */}
-            <div className="flex min-h-screen">
+            <div className="flex flex-1">
                 {/* Left Sidebar */}
-                <div className="flex-[1] p-4">
+                <div className="hidden md:block flex-[1] p-4">
                     <div className="sticky top-4 space-y-4"></div>
                 </div>
 
                 {/* Center */}
-                <div className="flex-[8] p-4 max-w-screen-xl mx-auto">
+                <div className="flex-[8] p-4 max-w-screen-xl mx-auto w-full">
                     {sortOption === "price" ? (
                         <div className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                             {getSortedItems().map((item, index) => (
@@ -170,7 +185,7 @@ function App() {
                                         href={item.link}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className=" text-blue-500 underline mt-auto"
+                                        className="text-blue-500 underline mt-auto"
                                     >
                                         View Product
                                     </a>
@@ -181,20 +196,23 @@ function App() {
                         Object.entries(itemList).map(([storeName, items]) => (
                             items.length > 0 && (
                                 <div key={storeName} className="mb-6">
-                                    <div className="flex items-center gap-4 ">
+                                    <div className="flex items-center gap-4">
                                         <h2 className="text-xl font-sans font-semibold tracking-wide uppercase mb-2 whitespace-nowrap">
                                             {storeName}
                                         </h2>
                                         <div className="overflow-x-auto w-full pt-2">
                                             <div className="flex gap-4 min-w-max">
                                                 {items.map((item, index) => (
-                                                    <div key={index} className="flex-shrink-0 w-60 bg-white p-4 shadow-md rounded">
+                                                    <div
+                                                        key={index}
+                                                        className="flex-shrink-0 w-60 bg-white p-4 shadow-md rounded"
+                                                    >
                                                         <img
                                                             src={item.image || "https://via.placeholder.com/150"}
                                                             alt={item.name}
                                                             className="w-full h-40 object-contain mb-2"
                                                         />
-                                                        <h3 className="font">{item.name}</h3>
+                                                        <h3>{item.name}</h3>
                                                         <p>{item.price}</p>
                                                         <a
                                                             href={item.link}
@@ -216,15 +234,13 @@ function App() {
                 </div>
 
                 {/* Right Sidebar */}
-                <div className="flex-[1] p-4">
+                <div className="hidden md:block flex-[1] p-4">
                     <div className="sticky top-4 space-y-4"></div>
                 </div>
             </div>
-
-
-
         </div>
     );
+
 }
 
 export default App;
