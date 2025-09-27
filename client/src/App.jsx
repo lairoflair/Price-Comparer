@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import "./App.css";
 import "./Main Part.jsx";
-
+import PriceWiseLogo from "./PriceWiseLogo.png";
 function App() {
     const [searchItem, setSearchItem] = useState("");
     const [postalCode, setPostalCode] = useState("M5V2T6");
@@ -59,80 +59,90 @@ function App() {
     return (
         <div className="min-h-screen">
             {/* Top bar */}
-            <div className="top-bar sticky top-0 z-10 bg-white shadow p-4 flex flex-col md:flex-row md:items-center md:justify-between">
-                <div className="logo">E-commerce Price Comparer</div>
+            <div className="top-bar sticky top-0 z-10 bg-blue-600 shadow p-4 flex flex-col md:flex-row md:items-center md:justify-between">
+                <div className="logo flex items-center gap-2">
+                    <img
+                        src={PriceWiseLogo}
+                        alt="PriceWise Logo"
+                        className="h-8 w-auto md:h-10 lg:h-12 object-contain"
+                    />
+                    <span className="font-bold text-lg">E-commerce Price Comparer</span>
+                </div>
+
             </div>
 
             {/* Util bar */}
-            <div>
-                <div className="dropdowns">
-                    {/* Stores dropdown */}
-                    <div className="dropdown">
-                        <button className="dropbtn">Stores</button>
-                        <div className="dropdown-content">
-                            <label>
-                                <input
-                                    type="checkbox"
-                                    checked={bestBuy}
-                                    onChange={() => setBestBuy(!bestBuy)}
-                                />
-                                Best Buy
-                            </label>
-                            <label>
-                                <input
-                                    type="checkbox"
-                                    checked={canadianTire}
-                                    onChange={() => setCanadianTire(!canadianTire)}
-                                />
-                                Canadian Tire
-                            </label>
-                            <label>
-                                <input
-                                    type="checkbox"
-                                    checked={staples}
-                                    onChange={() => setStaples(!staples)}
-                                />
-                                Staples
-                            </label>
-                            <label>
-                                <input
-                                    type="checkbox"
-                                    checked={homeDepot}
-                                    onChange={() => setHomeDepot(!homeDepot)}
-                                />
-                                Home Depot
-                            </label>
+            <div className="bg-blue-500">
+                <div className=" ">
+                    <div className="dropdowns">
+                        {/* Stores dropdown */}
+                        <div className="dropdown">
+                            <button className="dropbtn">Stores</button>
+                            <div className="dropdown-content">
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={bestBuy}
+                                        onChange={() => setBestBuy(!bestBuy)}
+                                    />
+                                    Best Buy
+                                </label>
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={canadianTire}
+                                        onChange={() => setCanadianTire(!canadianTire)}
+                                    />
+                                    Canadian Tire
+                                </label>
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={staples}
+                                        onChange={() => setStaples(!staples)}
+                                    />
+                                    Staples
+                                </label>
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={homeDepot}
+                                        onChange={() => setHomeDepot(!homeDepot)}
+                                    />
+                                    Home Depot
+                                </label>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Sort dropdown */}
-                    <select
-                        className="sort-select"
-                        value={sortOption}
-                        onChange={(e) => setSortOption(e.target.value)}
-                    >
-                        <option value="price">Sort by Price</option>
-                        <option value="website">Sort by Website</option>
-                    </select>
+                        {/* Sort dropdown */}
+                        <select
+                            className="sort-select"
+                            value={sortOption}
+                            onChange={(e) => setSortOption(e.target.value)}
+                        >
+                            <option value="price">Sort by Price</option>
+                            <option value="website">Sort by Website</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
-            {/* Search bar */}
-            <div className="search-bar">
-                <input
-                    id="SearchBar"
-                    type="text"
-                    value={searchItem}
-                    onChange={(e) => setSearchItem(e.target.value)}
-                    placeholder="Search for a product..."
-                />
-                <input
-                    id="PostalCode"
-                    type="text"
-                    value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
-                    placeholder="Enter Postal Code..."
-                />
-                <button onClick={findItem}>Search</button>
+                {/* Search bar */}
+                <div className="search-bar shadow p-4 flex flex-col md:flex-row md:items-center md:justify-center gap-2">
+                    <input
+                        id="SearchBar"
+                        type="text"
+                        value={searchItem}
+                        onChange={(e) => setSearchItem(e.target.value)}
+                        placeholder="Search for a product..."
+                    />
+                    <input
+                        id="PostalCode"
+                        type="text"
+                        value={postalCode}
+                        onChange={(e) => setPostalCode(e.target.value)}
+                        placeholder="Enter Postal Code..."
+                    />
+                    <button onClick={findItem}>Search</button>
+                </div>
             </div>
 
             {/* Main content */}
