@@ -4,10 +4,8 @@ This web app tracks product prices and availability from Amazon, Flipkart, and e
 
 ## Tech Stack
 - Frontend: React
-- Backend: Node.js/Express
-- Database: MongoDB
-- Scraping: Cheerio, Axios
-- Email: Nodemailer
+- Backend: FastAPI
+- Scraping: Selenium
 
 ## Features
 - Scrape prices and availability
@@ -16,8 +14,7 @@ This web app tracks product prices and availability from Amazon, Flipkart, and e
 
 ## Setup
 1. Install dependencies in `client` and `server` folders
-2. Configure MongoDB connection
-3. Start frontend and backend servers
+2. Start frontend and backend servers
 
 ## To Do
 - Implement scrapers
