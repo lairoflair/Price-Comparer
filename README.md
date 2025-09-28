@@ -1,7 +1,7 @@
-Example 1:
+Sort by price:
 ![Example of sort by price](example_battery_byPrice.png)
 
-Example 2:
+Sort by website:
 ![Example of sort by website](example_battery_byWebsite.png)
 
 
