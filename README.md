@@ -1,3 +1,7 @@
+![Example of sort by price](example_battery_byPrice.png)
+![Example of sort by store](example_battery_byStore.png)
+
+
 # E-commerce Price Tracker
 
 This web app tracks product prices and availability from Amazon, Flipkart, and eBay. It can monitor price changes and send email alerts.
