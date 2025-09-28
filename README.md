@@ -1,4 +1,6 @@
 ![Example of sort by price](example_battery_byPrice.png)
+
+
 ![Example of sort by website](example_battery_byWebsite.png)
 
 
