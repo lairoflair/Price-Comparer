@@ -23,3 +23,7 @@ This web app tracks product prices and availability from Amazon, Flipkart, and e
 - Implement scrapers
 - Build UI
 - Add email alerts
+
+## To Run
+- npm run dev /client
+- uvicorn main:app --reload /server
